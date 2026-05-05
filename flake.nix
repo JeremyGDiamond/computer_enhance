@@ -13,7 +13,7 @@
   in {
     devShells.${system}.default = pkgs.mkShell {
       buildInputs = [
-        zig.packages.${system}.master
+        zig.packages.${system}."0.16.0"
       ];
       shellHook = ''echo "Using zig: $(zig version)"'';
     };
