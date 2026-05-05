@@ -9,8 +9,15 @@ pub fn main(init: std.process.Init) !void {
 
     // TODO open bin file
     //
+    const args = try init.minimal.args.toSlice(init.arena.allocator());
+    if (args.len < 2) {
+        std.debug.print("Usage: program <file>\n", .{});
+        return;
+    }
+    const path = args[1];
+
     const cwd = std.Io.Dir.cwd();
-    const file = try cwd.openFile(init.io, "perfaware/part1/listing_0037_single_register_mov", .{});
+    const file = try cwd.openFile(init.io, path, .{});
     defer file.close(init.io);
 
     var buf: [4096]u8 = undefined;
