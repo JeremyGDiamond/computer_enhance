@@ -23,12 +23,35 @@ pub fn main(init: std.process.Init) !void {
     var buf: [4096]u8 = undefined;
     const n = try file.readPositionalAll(init.io, &buf, 0);
     _ = buf[0..n];
-    // Now you have the file content as a mutable slice.
-    std.debug.print("{x}\n", .{buf[0..n]});
+
+    // debug print of raw bin
+    // var index: u64 = 0;
+    // while (index < n) {
+    //     std.debug.print("{b}", .{buf[index]});
+    //     std.debug.print("{b}", .{buf[index + 1]});
+    //     std.debug.print("\n", .{});
+    //     index += 2;
+    // }
+    //
+    // std.debug.print("\n", .{});
+    //
     // TODO decode mov with target
+    var index: u64 = 0;
+    while (index < n) {
+        // if the first 6bits are 100010 it is a mov
+        // if the 7th is 0 direction is to register else from register
+        // if the 8trh is 0 it is an 8bit op else 16 bits
+        // 9 and 10 are reg mode
+        // 11 to 13 are operand and opcode
+        // 14 to 16 more opcode
+        index += 2;
+    }
+
     //
     // TODO print output
+
     //
     // TODO re assemble
 
 }
+
