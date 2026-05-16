@@ -20,8 +20,52 @@ pub fn opcode(buf: *u8) Inst {
     return Inst.fail;
 }
 
+pub fn regAss2(masked: u8, width: WidthMode) *const [2:0]u8 {
+    var r1 = "xx";
+    if (width == .eight_bit) {
+        r1 = switch (masked) {
+            0b00000000 => "al",
+            0b00000001 => "cl",
+            0b00000010 => "dl",
+            0b00000011 => "bl",
+            0b00000100 => "ah",
+            0b00000101 => "ch",
+            0b00000110 => "dh",
+            0b00000111 => "bh",
+            else => "fl",
+        };
+    } else {
+        r1 = switch (masked) {
+            0b00000000 => "ax",
+            0b00000001 => "cx",
+            0b00000010 => "dx",
+            0b00000011 => "bx",
+            0b00000100 => "sp",
+            0b00000101 => "bp",
+            0b00000110 => "si",
+            0b00000111 => "di",
+            else => "fl",
+        };
+    }
+    return r1;
+}
+
+pub fn sliceAndRet(str: *const [9:0]u8, slen: *u64) *const [9:0]u8 {
+    var count: u64 = 9;
+    //141 in ascii is an unused char, we will scan for a null
+    var char = " "[0];
+    while (char == " "[0]) {
+        count -= 1;
+        char = str[count - 1];
+    }
+
+    slen.* = count;
+    return str;
+}
+
 pub fn mov_reg_mem_to_reg(buf: *[4096]u8, index: u64) u64 {
     const Mode_reg_mem_to_reg = enum { mem0, mem8, mem16, reg, fail };
+    const D_bit_modes = enum { src_reg, des_reg, fail };
 
     const mem_mode = switch (buf.*[index + 1] & 0b11000000) {
         0b00000000 => Mode_reg_mem_to_reg.mem0,
@@ -37,82 +81,131 @@ pub fn mov_reg_mem_to_reg(buf: *[4096]u8, index: u64) u64 {
         else => WidthMode.sixT_bit,
     };
 
+    const dMask = (buf[index] & 0b00000010);
+    const d_bit: D_bit_modes = switch (dMask) {
+        0b00000010 => .src_reg,
+        0b00000000 => .des_reg,
+        else => .fail,
+    };
+
+    const regBits = (buf.*[index + 1] & 0b00111000) >> 3;
+
+    const rmBits = buf.*[index + 1] & 0b00000111;
+
+    var r1 = "xx";
+
+    var r2 = "[xx + xx]";
+
+    var sliceLenR2: u64 = 9;
+
     switch (mem_mode) {
         Mode_reg_mem_to_reg.reg => {
-            var r1 = "xx";
-
-            var r2 = "xx";
+            r1 = regAss2(buf.*[index + 1] & 0b00000111, width);
 
             if (width == .eight_bit) {
-                r1 = switch ((buf.*[index + 1] & 0b00111000) >> 3) {
-                    0b00000000 => "al",
-                    0b00000001 => "cl",
-                    0b00000010 => "dl",
-                    0b00000011 => "bl",
-                    0b00000100 => "ah",
-                    0b00000101 => "ch",
-                    0b00000110 => "dh",
-                    0b00000111 => "bh",
-                    else => "fl",
+                r2 = switch ((buf.*[index + 1] & 0b00111000) >> 3) {
+                    0b00000000 => "al       ",
+                    0b00000001 => "cl       ",
+                    0b00000010 => "dl       ",
+                    0b00000011 => "bl       ",
+                    0b00000100 => "ah       ",
+                    0b00000101 => "ch       ",
+                    0b00000110 => "dh       ",
+                    0b00000111 => "bh       ",
+                    else => "fl       ",
                 };
-
-                r2 = switch (buf.*[index + 1] & 0b00000111) {
-                    0b00000000 => "al",
-                    0b00000001 => "cl",
-                    0b00000010 => "dl",
-                    0b00000011 => "bl",
-                    0b00000100 => "ah",
-                    0b00000101 => "ch",
-                    0b00000110 => "dh",
-                    0b00000111 => "bh",
-                    else => "fl",
-                };
+                sliceLenR2 = 2;
             } else {
-                r1 = switch ((buf.*[index + 1] & 0b00111000) >> 3) {
-                    0b00000000 => "ax",
-                    0b00000001 => "cx",
-                    0b00000010 => "dx",
-                    0b00000011 => "bx",
-                    0b00000100 => "sp",
-                    0b00000101 => "bp",
-                    0b00000110 => "si",
-                    0b00000111 => "di",
-                    else => "fl",
+                r2 = switch ((buf.*[index + 1] & 0b00111000) >> 3) {
+                    0b00000000 => "ax       ",
+                    0b00000001 => "cx       ",
+                    0b00000010 => "dx       ",
+                    0b00000011 => "bx       ",
+                    0b00000100 => "sp       ",
+                    0b00000101 => "bp       ",
+                    0b00000110 => "si       ",
+                    0b00000111 => "di       ",
+                    else => "fl       ",
                 };
-                r2 = switch (buf.*[index + 1] & 0b00000111) {
-                    0b00000000 => "ax",
-                    0b00000001 => "cx",
-                    0b00000010 => "dx",
-                    0b00000011 => "bx",
-                    0b00000100 => "sp",
-                    0b00000101 => "bp",
-                    0b00000110 => "si",
-                    0b00000111 => "di",
-                    else => "fl",
-                };
+                sliceLenR2 = 2;
             }
-
-            std.debug.print("mov {s} {s}\n", .{ r2, r1 });
-            return 0;
         },
         .mem0 => {
-            std.debug.print("mov_reg_mem_to_reg mode mem0\n", .{});
-            return 0;
+            r1 = regAss2(regBits, width);
+
+            r2 = switch (rmBits) {
+                0b00000000 => sliceAndRet("[bx + si]", &sliceLenR2),
+                0b00000001 => sliceAndRet("[bx + di]", &sliceLenR2),
+                0b00000010 => "[bp + si]",
+                0b00000011 => "[bp + di]",
+                0b00000100 => "[si]     ",
+                0b00000101 => "[di]     ",
+                0b00000110 => "addr     ",
+                0b00000111 => "[bx]     ",
+                else => "fl       ",
+            };
         },
 
         .mem8 => {
             std.debug.print("mov_reg_mem_to_reg mode mem8\n", .{});
-            return 1;
         },
 
         .mem16 => {
             std.debug.print("mov_reg_mem_to_reg mode mem16\n", .{});
-            return 2;
         },
         else => {
             std.debug.print("mov_reg_mem_to_reg mode fail\n", .{});
         },
     }
+
+    switch (d_bit) {
+        .des_reg => std.debug.print("mov {s} {s}\n", .{ r2[0..sliceLenR2], r1 }),
+        .src_reg => std.debug.print("mov {s} {s}\n", .{ r1, r2[0..sliceLenR2] }),
+        .fail => std.debug.print("mov dbit error\n", .{}),
+    }
+    switch (mem_mode) {
+        .reg => return 0,
+        .mem0 => return 0,
+        .mem8 => return 1,
+        .mem16 => return 2,
+        .fail => return 0,
+    }
+
+    return 0;
+}
+
+pub fn mov_imm_to_reg(buf: *[4096]u8, index: u64) u64 {
+    if (buf.*[index] & 0b00001000 == 0b00001000) {
+        const regStr = switch (buf.*[index] & 0b00000111) {
+            0b00000000 => "ax",
+            0b00000001 => "cx",
+            0b00000010 => "dx",
+            0b00000011 => "bx",
+            0b00000100 => "sp",
+            0b00000101 => "bp",
+            0b00000110 => "si",
+            0b00000111 => "di",
+            else => "fl",
+        };
+
+        std.debug.print("mov {s} {d}\n", .{ regStr, std.mem.readInt(u16, @ptrCast(buf[index + 1 .. index + 2]), .native) });
+
+        return 1;
+    }
+
+    const regStr = switch (buf.*[index] & 0b00000111) {
+        0b00000000 => "al",
+        0b00000001 => "cl",
+        0b00000010 => "dl",
+        0b00000011 => "bl",
+        0b00000100 => "ah",
+        0b00000101 => "ch",
+        0b00000110 => "dh",
+        0b00000111 => "bh",
+        else => "fl",
+    };
+
+    std.debug.print("mov {s} {d}\n", .{ regStr, buf.*[index + 1] });
     return 0;
 }
 
@@ -173,9 +266,11 @@ pub fn main(init: std.process.Init) !void {
             Inst.fail => 2,
         };
 
-        if ((instruction == Inst.mov_imm_to_reg_mem) or (instruction ==
-            Inst.mov_imm_to_reg))
-        {
+        // if (instruction == Inst.mov_imm_to_reg) {
+        //     iter += mov_imm_to_reg(&buf, index);
+        // }
+
+        if (instruction == Inst.mov_imm_to_reg_mem) {
             //mask w bit
             if (buf[index] & 0b00001000 == 0b00001000) {
                 iter += 1;
@@ -187,7 +282,7 @@ pub fn main(init: std.process.Init) !void {
         } else {
             switch (instruction) {
                 .mov_imm_to_reg_mem => std.debug.print("mov_imm_to_reg_mem\n", .{}),
-                .mov_imm_to_reg => std.debug.print("mov_imm_to_reg {b} {b} {b}\n", .{ buf[index], buf[index + 1], buf[index + 2] }),
+                .mov_imm_to_reg => iter += mov_imm_to_reg(&buf, index),
                 .mov_mem_to_acc => std.debug.print("mov_mem_to_acc\n", .{}),
                 .mov_acc_to_mem => std.debug.print("mov_acc_to_mem\n", .{}),
                 .mov_reg_mem_to_segreg => std.debug.print("mov_reg_mem_to_segreg\n", .{}),
