@@ -14,6 +14,7 @@
     devShells.${system}.default = pkgs.mkShell {
       buildInputs = [
         zig.packages.${system}."0.16.0"
+        pkgs.nasm
       ];
       shellHook = ''echo "Using zig: $(zig version)"'';
     };
