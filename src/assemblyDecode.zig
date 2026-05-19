@@ -243,6 +243,73 @@ pub fn mov_reg_mem_to_reg(buf: *[4096]u8, index: u64) !u64 {
     return 0;
 }
 
+pub fn mov_imm_to_reg_mem(buf: *[4096]u8, index: u64) !u64 {
+    const Mode_reg_mem_to_reg = enum { mem0, mem8, mem16, reg, fail };
+    const mem_mode = switch (buf.*[index + 1] & 0b11000000) {
+        0b00000000 => Mode_reg_mem_to_reg.mem0,
+        0b01000000 => Mode_reg_mem_to_reg.mem8,
+        0b10000000 => Mode_reg_mem_to_reg.mem16,
+        0b11000000 => Mode_reg_mem_to_reg.reg,
+        else => Mode_reg_mem_to_reg.fail,
+    };
+
+    const rmBits = buf.*[index + 1] & 0b00000111;
+
+    var r1 = "[xx + xx]";
+    var sliceLenR1: u64 = 9;
+    var r2 = "[xx + xx]";
+    var sliceLenR2: u64 = 9;
+    var r3: [8:0]u8 = undefined;
+    var sliceLenR3: u64 = 9;
+
+    const wMask = (buf[index] & 0b00000001);
+    const width = switch (wMask) {
+        0b00000000 => WidthMode.eight_bit,
+        else => WidthMode.sixT_bit,
+    };
+
+    switch (mem_mode) {
+        .reg => std.debug.print(": mov_imm_to_reg_mem mode reg :", .{}),
+        .mem0 => {
+            // std.debug.print(": mem0 :", .{});
+
+            sliceLenR2 = 0;
+            r1 = switch (rmBits) {
+                0b00000000 => sliceAndRet("[bx + si]", &sliceLenR1),
+                0b00000001 => sliceAndRet("[bx + di]", &sliceLenR1),
+                0b00000010 => sliceAndRet("[bp + si]", &sliceLenR1),
+                0b00000011 => sliceAndRet("[bp + di]", &sliceLenR1),
+                0b00000100 => sliceAndRet("[si]     ", &sliceLenR1),
+                0b00000101 => sliceAndRet("[di]     ", &sliceLenR1),
+                0b00000110 => sliceAndRet("[bp]     ", &sliceLenR1),
+                0b00000111 => sliceAndRet("[bx]     ", &sliceLenR1),
+                else => sliceAndRet("fl       ", &sliceLenR1),
+            };
+
+            if (width == .eight_bit) {
+                const locstr = try std.fmt.bufPrint(&r3, "byte {d}", .{buf.*[index + 2]});
+                sliceLenR3 = locstr.len;
+            } else {
+                // untested
+                const locstr = try std.fmt.bufPrint(&r3, "byte {d}", .{(@as(u16, buf[index + 3]) << 8) | @as(u16, buf[index + 2])});
+                sliceLenR3 = locstr.len;
+            }
+        },
+        .mem8 => std.debug.print(": mov_imm_to_reg_mem mode mem8 :", .{}),
+        .mem16 => {
+            std.debug.print("\n: mem16 TODO add r4, set r1 based on table, r3 as offset, and r4 as imm :\n", .{});
+        },
+        .fail => std.debug.print(": mov_imm_to_reg_mem mode fail :", .{}),
+    }
+
+    std.debug.print("mov {s} {s}{s}\n", .{ r1[0..sliceLenR1], r2[0..sliceLenR2], r3[0..sliceLenR3] });
+
+    if (width == .sixT_bit) {
+        return 1;
+    }
+    return 0;
+}
+
 pub fn mov_imm_to_reg(buf: *[4096]u8, index: u64) u64 {
     if (buf.*[index] & 0b00001000 == 0b00001000) {
         const regStr = switch (buf.*[index] & 0b00000111) {
@@ -339,25 +406,19 @@ pub fn main(init: std.process.Init) !void {
         //     iter += mov_imm_to_reg(&buf, index);
         // }
 
-        if (instruction == Inst.mov_imm_to_reg_mem) {
-            //mask w bit
-            if (buf[index] & 0b00001000 == 0b00001000) {
-                iter += 1;
-            }
-        }
+        switch (instruction) {
+            .mov_imm_to_reg_mem => {
+                std.debug.print(": {b:0>8} {b:0>8} {b:0>8} {b:0>8} {b:0>8} {b:0>8} {b:0>8} {b:0>8}:", .{ buf[index], buf[index + 1], buf[index + 2], buf[index + 3], buf[index + 4], buf[index + 5], buf[index + 6], buf[index + 7] });
 
-        if (instruction == Inst.mov_reg_mem_to_reg) {
-            iter += try mov_reg_mem_to_reg(&buf, index);
-        } else {
-            switch (instruction) {
-                .mov_imm_to_reg_mem => std.debug.print("mov_imm_to_reg_mem\n", .{}),
-                .mov_imm_to_reg => iter += mov_imm_to_reg(&buf, index),
-                .mov_mem_to_acc => std.debug.print("mov_mem_to_acc\n", .{}),
-                .mov_acc_to_mem => std.debug.print("mov_acc_to_mem\n", .{}),
-                .mov_reg_mem_to_segreg => std.debug.print("mov_reg_mem_to_segreg\n", .{}),
-                .mov_segreg_toreg_mem => std.debug.print("mov_segreg_toreg_mem\n", .{}),
-                else => std.debug.print("fail {} {b}\n", .{ instruction, buf[index] }),
-            }
+                iter += try mov_imm_to_reg_mem(&buf, index);
+            },
+            .mov_reg_mem_to_reg => iter += try mov_reg_mem_to_reg(&buf, index),
+            .mov_imm_to_reg => iter += mov_imm_to_reg(&buf, index),
+            .mov_mem_to_acc => std.debug.print("mov_mem_to_acc\n", .{}),
+            .mov_acc_to_mem => std.debug.print("mov_acc_to_mem\n", .{}),
+            .mov_reg_mem_to_segreg => std.debug.print("mov_reg_mem_to_segreg\n", .{}),
+            .mov_segreg_toreg_mem => std.debug.print("mov_segreg_toreg_mem\n", .{}),
+            else => std.debug.print("fail {} {b}\n", .{ instruction, buf[index] }),
         }
 
         index += iter;
