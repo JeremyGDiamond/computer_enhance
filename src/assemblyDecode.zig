@@ -7,8 +7,8 @@ const Inst = enum { mov_reg_mem_to_reg, mov_imm_to_reg_mem, mov_imm_to_reg, mov_
 const WidthMode = enum { eight_bit, sixT_bit };
 
 pub fn opcode(buf: *u8) Inst {
-    // std.debug.print("ponter: {}  ", .{buf});
-    // std.debug.print("opbyte: {b}  ", .{buf.*});
+    std.debug.print("ponter: {}  ", .{buf});
+    std.debug.print("opbyte: {b}  ", .{buf.*});
 
     if (buf.* & 0b11111100 == 0b10001000) return Inst.mov_reg_mem_to_reg;
     if (buf.* & 0b11111110 == 0b11000110) return Inst.mov_imm_to_reg_mem;
@@ -48,6 +48,21 @@ pub fn regAss2(masked: u8, width: WidthMode) *const [2:0]u8 {
         };
     }
     return r1;
+}
+
+pub fn dirAddr(slen: *u64, buf: *[4096]u8, index: *const u64, out: *[9:0]u8) *const [9:0]u8 {
+    out.* = .{' '} ** 9;
+    const value = std.mem.readInt(u16, buf[(index.* + 2)..][0..2], .little);
+    _ = std.fmt.bufPrint(out, "[{d}]", .{value}) catch unreachable;
+
+    var count: u64 = 9;
+    var char = " "[0];
+    while (char == " "[0]) {
+        count -= 1;
+        char = out[count - 1];
+    }
+    slen.* = count + 1;
+    return out;
 }
 
 pub fn sliceAndRet(str: *const [9:0]u8, slen: *u64) *const [9:0]u8 {
@@ -125,6 +140,8 @@ pub fn mov_reg_mem_to_reg(buf: *[4096]u8, index: u64) !u64 {
 
     var sliceLenR3: u64 = 8;
 
+    var dirAddrBuf: [9:0]u8 = undefined;
+
     switch (mem_mode) {
         .reg => {
             r1 = regAss2((buf.*[index + 1] & 0b00111000) >> 3, width);
@@ -168,7 +185,7 @@ pub fn mov_reg_mem_to_reg(buf: *[4096]u8, index: u64) !u64 {
                 0b00000011 => sliceAndRet("[bp + di]", &sliceLenR2),
                 0b00000100 => sliceAndRet("[si]     ", &sliceLenR2),
                 0b00000101 => sliceAndRet("[di]     ", &sliceLenR2),
-                0b00000110 => sliceAndRet("[bp]     ", &sliceLenR2),
+                0b00000110 => dirAddr(&sliceLenR2, buf, &index, &dirAddrBuf),
                 0b00000111 => sliceAndRet("[bx]     ", &sliceLenR2),
                 else => sliceAndRet("fl       ", &sliceLenR2),
             };
@@ -231,6 +248,9 @@ pub fn mov_reg_mem_to_reg(buf: *[4096]u8, index: u64) !u64 {
         .des_reg => std.debug.print("mov {s}{s}, {s}\n", .{ r2[0..sliceLenR2], r3[0..sliceLenR3], r1 }),
         .src_reg => std.debug.print("mov {s}, {s}{s}\n", .{ r1, r2[0..sliceLenR2], r3[0..sliceLenR3] }),
         .fail => std.debug.print("mov dbit error\n", .{}),
+    }
+    if (mem_mode == .mem0 and rmBits == 0b00000110){
+        return 2;
     }
     switch (mem_mode) {
         .reg => return 0,
@@ -332,6 +352,10 @@ pub fn mov_imm_to_reg_mem(buf: *[4096]u8, index: u64) !u64 {
 
     std.debug.print("mov {s}{s}{s}{s}\n", .{ r1[0..sliceLenR1], r2[0..sliceLenR2], r3[0..sliceLenR3], r4[0..sliceLenR4] });
 
+
+    if (mem_mode == .mem16) {
+        return 3;
+    }
     if (width == .sixT_bit) {
         return 1;
     }
@@ -435,9 +459,7 @@ pub fn main(init: std.process.Init) !void {
         // }
 
         switch (instruction) {
-            .mov_imm_to_reg_mem => {
-                iter += try mov_imm_to_reg_mem(&buf, index);
-            },
+            .mov_imm_to_reg_mem => iter += try mov_imm_to_reg_mem(&buf, index),
             .mov_reg_mem_to_reg => iter += try mov_reg_mem_to_reg(&buf, index),
             .mov_imm_to_reg => iter += mov_imm_to_reg(&buf, index),
             .mov_mem_to_acc => std.debug.print("mov_mem_to_acc\n", .{}),
