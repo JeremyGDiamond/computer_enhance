@@ -15,6 +15,7 @@
       buildInputs = [
         zig.packages.${system}."0.16.0"
         pkgs.nasm
+        pkgs.tinyxxd
       ];
       shellHook = ''echo "Using zig: $(zig version)"'';
     };

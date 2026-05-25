@@ -7,8 +7,8 @@ const Inst = enum { mov_reg_mem_to_reg, mov_imm_to_reg_mem, mov_imm_to_reg, mov_
 const WidthMode = enum { eight_bit, sixT_bit };
 
 pub fn opcode(buf: *u8) Inst {
-    std.debug.print("ponter: {}  ", .{buf});
-    std.debug.print("opbyte: {b}  ", .{buf.*});
+    // std.debug.print("ponter: {}  ", .{buf});
+    // std.debug.print("opbyte: {b}  ", .{buf.*});
 
     if (buf.* & 0b11111100 == 0b10001000) return Inst.mov_reg_mem_to_reg;
     if (buf.* & 0b11111110 == 0b11000110) return Inst.mov_imm_to_reg_mem;
@@ -19,6 +19,8 @@ pub fn opcode(buf: *u8) Inst {
     if (buf.* == 0b10001100) return Inst.mov_segreg_toreg_mem;
     return Inst.fail;
 }
+
+
 
 pub fn regAss2(masked: u8, width: WidthMode) *const [2:0]u8 {
     var r1 = "xx";
@@ -99,6 +101,42 @@ pub fn setR3STeen(val: u16, slen: *u64, r3: *[8:0]u8) !void {
         slen.* = locStr.len;
     }
     return;
+}
+
+pub fn mov_mem_to_acc(buf: *[4096]u8, index: u64) u64 {
+    var out: [9:0]u8 = undefined;
+    out = .{' '} ** 9;
+    const value = std.mem.readInt(u16, buf[(index + 1)..][0..2], .little);
+    _ = std.fmt.bufPrint(&out, "[{d}]", .{value}) catch unreachable;
+
+    var count: u64 = 9;
+    var char = " "[0];
+    while (char == " "[0]) {
+        count -= 1;
+        char = out[count - 1];
+    }
+
+    std.debug.print("mov ax, {s}\n", .{out[0..count]});
+
+    return 0;
+}
+
+pub fn mov_acc_to_mem(buf: *[4096]u8, index: u64) u64 {
+    var out: [9:0]u8 = undefined;
+    out = .{' '} ** 9;
+    const value = std.mem.readInt(u16, buf[(index + 1)..][0..2], .little);
+    _ = std.fmt.bufPrint(&out, "[{d}]", .{value}) catch unreachable;
+
+    var count: u64 = 9;
+    var char = " "[0];
+    while (char == " "[0]) {
+        count -= 1;
+        char = out[count - 1];
+    }
+
+    std.debug.print("mov {s}, ax\n", .{out[0..count]});
+
+    return 0;
 }
 
 pub fn mov_reg_mem_to_reg(buf: *[4096]u8, index: u64) !u64 {
@@ -462,8 +500,8 @@ pub fn main(init: std.process.Init) !void {
             .mov_imm_to_reg_mem => iter += try mov_imm_to_reg_mem(&buf, index),
             .mov_reg_mem_to_reg => iter += try mov_reg_mem_to_reg(&buf, index),
             .mov_imm_to_reg => iter += mov_imm_to_reg(&buf, index),
-            .mov_mem_to_acc => std.debug.print("mov_mem_to_acc\n", .{}),
-            .mov_acc_to_mem => std.debug.print("mov_acc_to_mem\n", .{}),
+            .mov_mem_to_acc => iter += mov_mem_to_acc(&buf, index),
+            .mov_acc_to_mem => iter += mov_acc_to_mem(&buf, index),
             .mov_reg_mem_to_segreg => std.debug.print("mov_reg_mem_to_segreg\n", .{}),
             .mov_segreg_toreg_mem => std.debug.print("mov_segreg_toreg_mem\n", .{}),
             else => std.debug.print("fail {} {b}\n", .{ instruction, buf[index] }),
