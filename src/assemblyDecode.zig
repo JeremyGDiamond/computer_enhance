@@ -20,8 +20,6 @@ pub fn opcode(buf: *u8) Inst {
     return Inst.fail;
 }
 
-
-
 pub fn regAss2(masked: u8, width: WidthMode) *const [2:0]u8 {
     var r1 = "xx";
     if (width == .eight_bit) {
@@ -84,7 +82,8 @@ pub fn setR3(val: u8, slen: *u64, r3: *[8:0]u8) !void {
         slen.* = 1;
         r3.* = "]       ".*;
     } else {
-        const locStr = try std.fmt.bufPrint(r3, "+ {d}]", .{val});
+        const intVal: i8 = @bitCast(val);
+        const locStr = try std.fmt.bufPrint(r3, "+ {}]", .{intVal});
         // std.debug.print("locStr: {s}\n", .{locStr});
         slen.* = locStr.len;
     }
@@ -96,7 +95,8 @@ pub fn setR3STeen(val: u16, slen: *u64, r3: *[8:0]u8) !void {
         slen.* = 1;
         r3.* = "]       ".*;
     } else {
-        const locStr = try std.fmt.bufPrint(r3, "+ {d}]", .{val});
+        const intVal: i16 = @bitCast(val);
+        const locStr = try std.fmt.bufPrint(r3, "+ {}]", .{intVal});
         // std.debug.print("locStr: {s}\n", .{locStr});
         slen.* = locStr.len;
     }
@@ -287,7 +287,7 @@ pub fn mov_reg_mem_to_reg(buf: *[4096]u8, index: u64) !u64 {
         .src_reg => std.debug.print("mov {s}, {s}{s}\n", .{ r1, r2[0..sliceLenR2], r3[0..sliceLenR3] }),
         .fail => std.debug.print("mov dbit error\n", .{}),
     }
-    if (mem_mode == .mem0 and rmBits == 0b00000110){
+    if (mem_mode == .mem0 and rmBits == 0b00000110) {
         return 2;
     }
     switch (mem_mode) {
@@ -389,7 +389,6 @@ pub fn mov_imm_to_reg_mem(buf: *[4096]u8, index: u64) !u64 {
     }
 
     std.debug.print("mov {s}{s}{s}{s}\n", .{ r1[0..sliceLenR1], r2[0..sliceLenR2], r3[0..sliceLenR3], r4[0..sliceLenR4] });
-
 
     if (mem_mode == .mem16) {
         return 3;

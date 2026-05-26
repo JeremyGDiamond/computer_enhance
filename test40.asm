@@ -1,8 +1,8 @@
 bits 16
 
-mov ax, [bx + di + 219]
-mov [si + 65236], cx
-mov dx, [bx + 224]
+mov ax, [bx + di + -37]
+mov [si + -300], cx
+mov dx, [bx + -32]
 mov [bp + di] ,byte 7
 mov [di + 901], word 347
 mov bp, [5] 
