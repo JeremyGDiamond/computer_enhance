@@ -20,35 +20,34 @@ pub fn opcode(buf: *u8) Inst {
     return Inst.fail;
 }
 
-// pub fn regAss2(masked: u8, width: WidthMode) *const [2:0]u8 {
-//     var r1 = "xx";
-//     if (width == .eight_bit) {
-//         r1 = switch (masked) {
-//             0b00000000 => "al",
-//             0b00000001 => "cl",
-//             0b00000010 => "dl",
-//             0b00000011 => "bl",
-//             0b00000100 => "ah",
-//             0b00000101 => "ch",
-//             0b00000110 => "dh",
-//             0b00000111 => "bh",
-//             else => "fl",
-//         };
-//     } else {
-//         r1 = switch (masked) {
-//             0b00000000 => "ax",
-//             0b00000001 => "cx",
-//             0b00000010 => "dx",
-//             0b00000011 => "bx",
-//             0b00000100 => "sp",
-//             0b00000101 => "bp",
-//             0b00000110 => "si",
-//             0b00000111 => "di",
-//             else => "fl",
-//         };
-//     }
-//     return r1;
-// }
+pub fn regAss2(masked: u8, width: WidthMode) []const u8 {
+    if (width == .eight_bit) {
+        switch (masked) {
+            0b00000000 => return "al",
+            0b00000001 => return "cl",
+            0b00000010 => return "dl",
+            0b00000011 => return "bl",
+            0b00000100 => return "ah",
+            0b00000101 => return "ch",
+            0b00000110 => return "dh",
+            0b00000111 => return "bh",
+            else => return "fl",
+        };
+    } else {
+        r1 = switch (masked) {
+            0b00000000 => return "ax",
+            0b00000001 => return "cx",
+            0b00000010 => return "dx",
+            0b00000011 => return "bx",
+            0b00000100 => return "sp",
+            0b00000101 => return "bp",
+            0b00000110 => return "si",
+            0b00000111 => return "di",
+            else => return "fl",
+        };
+    }
+    return "fl";
+}
 //
 // pub fn dirAddr(slen: *u64, buf: *[4096]u8, index: *const u64, out: *[9:0]u8) *const [9:0]u8 {
 //     out.* = .{' '} ** 9;
@@ -104,37 +103,37 @@ pub fn opcode(buf: *u8) Inst {
 // }
 
 pub fn mov_mem_to_acc(buf: *[4096]u8, index: u64, std_out: *std.Io.Writer) u64 {
-    var out: [9:0]u8 = undefined;
-    out = .{' '} ** 9;
+    // var out: [9:0]u8 = undefined;
+    // out = .{' '} ** 9;
     const value = std.mem.readInt(u16, buf[(index + 1)..][0..2], .little);
-    _ = std.fmt.bufPrint(&out, "[{d}]", .{value}) catch unreachable;
+    // _ = std.fmt.bufPrint(&out, "[{d}]", .{value}) catch unreachable;
+    //
+    // var count: u64 = 9;
+    // var char = " "[0];
+    // while (char == " "[0]) {
+    //     count -= 1;
+    //     char = out[count - 1];
+    // }
 
-    var count: u64 = 9;
-    var char = " "[0];
-    while (char == " "[0]) {
-        count -= 1;
-        char = out[count - 1];
-    }
-
-    try std_out.print("mov ax, {s}\n", .{out[0..count]});
+    try std_out.print("mov ax, [{d}]\n", .{value});
 
     return 0;
 }
 
 pub fn mov_acc_to_mem(buf: *[4096]u8, index: u64, std_out: *std.Io.Writer) u64 {
-    var out: [9:0]u8 = undefined;
-    out = .{' '} ** 9;
+    // var out: [9:0]u8 = undefined;
+    // out = .{' '} ** 9;
     const value = std.mem.readInt(u16, buf[(index + 1)..][0..2], .little);
-    _ = std.fmt.bufPrint(&out, "[{d}]", .{value}) catch unreachable;
+    // _ = std.fmt.bufPrint(&out, "[{d}]", .{value}) catch unreachable;
+    //
+    // var count: u64 = 9;
+    // var char = " "[0];
+    // while (char == " "[0]) {
+    //     count -= 1;
+    //     char = out[count - 1];
+    // }
 
-    var count: u64 = 9;
-    var char = " "[0];
-    while (char == " "[0]) {
-        count -= 1;
-        char = out[count - 1];
-    }
-
-    try std_out.print("mov {s}, ax\n", .{out[0..count]});
+    try std_out.print("mov {d}, ax\n", .{value});
 
     return 0;
 }
@@ -168,18 +167,18 @@ pub fn mov_reg_mem_to_reg(buf: *[4096]u8, index: u64, std_out: *std.Io.Writer) !
 
     const rmBits = buf.*[index + 1] & 0b00000111;
 
-    var r1 = "xx";
-
-    var r2 = "[xx + xx]";
-
-    var sliceLenR2: u64 = 9;
-
-    var r3: [8:0]u8 = undefined;
-
-    var sliceLenR3: u64 = 8;
-
-    var dirAddrBuf: [9:0]u8 = undefined;
-
+    // var r1 = "xx";
+    //
+    // var r2 = "[xx + xx]";
+    //
+    // var sliceLenR2: u64 = 9;
+    //
+    // var r3: [8:0]u8 = undefined;
+    //
+    // var sliceLenR3: u64 = 8;
+    //
+    // var dirAddrBuf: [9:0]u8 = undefined;
+    //
     switch (mem_mode) {
         .reg => {
             r1 = regAss2((buf.*[index + 1] & 0b00111000) >> 3, width);
@@ -196,7 +195,6 @@ pub fn mov_reg_mem_to_reg(buf: *[4096]u8, index: u64, std_out: *std.Io.Writer) !
                     0b00000111 => "bh       ",
                     else => "fl       ",
                 };
-                sliceLenR2 = 2;
             } else {
                 r2 = switch ((buf.*[index + 1] & 0b00000111)) {
                     0b00000000 => "ax       ",
