@@ -67,7 +67,7 @@ pub fn setR3(buf: *[4096]u8, index: *const u64, std_out: *std.Io.Writer, mem_mod
         }
     }
     else{
-        const val = ((@as(u16, buf[index.* + 3]) << 8) | @as(u16, buf[index.* + 2])); 
+        const val = ((@as(u16, buf[index.* + 1]) << 8) | @as(u16, buf[index.*])); 
         if (val == 0) {
             try std_out.print("]", .{});
         } else {
@@ -164,7 +164,7 @@ pub fn mov_reg_mem_to_reg(buf: *[4096]u8, index: u64, std_out: *std.Io.Writer) !
         },
         .mem0 => {
             if (d_bit == .src_reg){
-                try std_out.print("{s} ,",.{regAss2(regBits, width)});
+                try std_out.print("{s}, ",.{regAss2(regBits, width)});
             }
 
             switch (rmBits) {
@@ -194,11 +194,11 @@ pub fn mov_reg_mem_to_reg(buf: *[4096]u8, index: u64, std_out: *std.Io.Writer) !
                 0b00000001 => std_out.print("[bx + di ", .{}),
                 0b00000010 => std_out.print("[bp + si ", .{}),
                 0b00000011 => std_out.print("[bp + di ", .{}),
-                0b00000100 => std_out.print("[si      ", .{}),
-                0b00000101 => std_out.print("[di      ", .{}),
-                0b00000110 => std_out.print("[bp      ", .{}),
-                0b00000111 => std_out.print("[bx      ", .{}),
-                else => std_out.print("fl       ", .{}),
+                0b00000100 => std_out.print("[si", .{}),
+                0b00000101 => std_out.print("[di", .{}),
+                0b00000110 => std_out.print("[bp", .{}),
+                0b00000111 => std_out.print("[bx", .{}),
+                else => std_out.print("fl  ", .{}),
             };
 
             try setR3(buf, &(index + 2), std_out, false);
@@ -218,14 +218,14 @@ pub fn mov_reg_mem_to_reg(buf: *[4096]u8, index: u64, std_out: *std.Io.Writer) !
                 0b00000001 => std_out.print("[bx + di ", .{}),
                 0b00000010 => std_out.print("[bp + si ", .{}),
                 0b00000011 => std_out.print("[bp + di ", .{}),
-                0b00000100 => std_out.print("[si      ", .{}),
-                0b00000101 => std_out.print("[di      ", .{}),
-                0b00000110 => std_out.print("[bp      ", .{}),
-                0b00000111 => std_out.print("[bx      ", .{}),
-                else => std_out.print("fl       ", .{}),
+                0b00000100 => std_out.print("[si ", .{}),
+                0b00000101 => std_out.print("[di ", .{}),
+                0b00000110 => std_out.print("[bp ", .{}),
+                0b00000111 => std_out.print("[bx ", .{}),
+                else => std_out.print("fl  ", .{}),
             };
 
-            try setR3(buf, &(index + 2), std_out, false);
+            try setR3(buf, &(index + 2), std_out, true);
             if (d_bit == .des_reg){
                 try std_out.print(", {s}",.{regAss2(regBits, width)});
             }
@@ -252,139 +252,119 @@ pub fn mov_reg_mem_to_reg(buf: *[4096]u8, index: u64, std_out: *std.Io.Writer) !
     return 0;
 }
 
-// pub fn mov_imm_to_reg_mem(buf: *[4096]u8, index: u64, std_out: *std.Io.Writer) !u64 {
-//     const Mode_reg_mem_to_reg = enum { mem0, mem8, mem16, reg, fail };
-//     const mem_mode = switch (buf.*[index + 1] & 0b11000000) {
-//         0b00000000 => Mode_reg_mem_to_reg.mem0,
-//         0b01000000 => Mode_reg_mem_to_reg.mem8,
-//         0b10000000 => Mode_reg_mem_to_reg.mem16,
-//         0b11000000 => Mode_reg_mem_to_reg.reg,
-//         else => Mode_reg_mem_to_reg.fail,
-//     };
-//
-//     const rmBits = buf.*[index + 1] & 0b00000111;
-//
-//     var r1 = "[xx + xx]";
-//     var sliceLenR1: u64 = 9;
-//     var r2 = "[xx + xx] ";
-//     var sliceLenR2: u64 = 10;
-//     var r3: [8:0]u8 = undefined;
-//     var sliceLenR3: u64 = 9;
-//     var r4: [8:0]u8 = undefined;
-//     var sliceLenR4: u64 = 9;
-//
-//     const wMask = (buf[index] & 0b00000001);
-//     const width = switch (wMask) {
-//         0b00000000 => WidthMode.eight_bit,
-//         else => WidthMode.sixT_bit,
-//     };
-//
-//     switch (mem_mode) {
-//         .reg => try std_out.print(": mov_imm_to_reg_mem mode reg :", .{}),
-//         .mem0 => {
-//             // try std_out.print(": mem0 :", .{});
-//
-//             sliceLenR2 = 0;
-//             sliceLenR4 = 0;
-//             r1 = switch (rmBits) {
-//                 0b00000000 => sliceAndRet("[bx + si]", &sliceLenR1),
-//                 0b00000001 => sliceAndRet("[bx + di]", &sliceLenR1),
-//                 0b00000010 => sliceAndRet("[bp + si]", &sliceLenR1),
-//                 0b00000011 => sliceAndRet("[bp + di]", &sliceLenR1),
-//                 0b00000100 => sliceAndRet("[si]     ", &sliceLenR1),
-//                 0b00000101 => sliceAndRet("[di]     ", &sliceLenR1),
-//                 0b00000110 => sliceAndRet("[bp]     ", &sliceLenR1),
-//                 0b00000111 => sliceAndRet("[bx]     ", &sliceLenR1),
-//                 else => sliceAndRet("fl       ", &sliceLenR1),
-//             };
-//
-//             if (width == .eight_bit) {
-//                 const locstr = try std.fmt.bufPrint(&r3, " ,byte {d}", .{buf.*[index + 2]});
-//                 sliceLenR3 = locstr.len;
-//             } else {
-//                 // untested
-//                 const locstr = try std.fmt.bufPrint(&r3, " ,byte {d}", .{(@as(u16, buf[index + 3]) << 8) | @as(u16, buf[index + 2])});
-//                 sliceLenR3 = locstr.len;
-//             }
-//         },
-//         .mem8 => try std_out.print(": mov_imm_to_reg_mem mode mem8 :", .{}),
-//         .mem16 => {
-//             sliceLenR2 = 0;
-//             r1 = switch (rmBits) {
-//                 0b00000000 => sliceAndRet("[bx + si ", &sliceLenR1),
-//                 0b00000001 => sliceAndRet("[bx + di ", &sliceLenR1),
-//                 0b00000010 => sliceAndRet("[bp + si ", &sliceLenR1),
-//                 0b00000011 => sliceAndRet("[bp + di ", &sliceLenR1),
-//                 0b00000100 => sliceAndRet("[si      ", &sliceLenR1),
-//                 0b00000101 => sliceAndRet("[di      ", &sliceLenR1),
-//                 0b00000110 => sliceAndRet("[bp      ", &sliceLenR1),
-//                 0b00000111 => sliceAndRet("[bx      ", &sliceLenR1),
-//                 else => sliceAndRet("fl       ", &sliceLenR1),
-//             };
-//
-//             if (width == .eight_bit) {
-//                 //untested
-//                 var locstr = try std.fmt.bufPrint(&r3, "+ {d}], ", .{buf.*[index + 2]});
-//                 sliceLenR3 = locstr.len;
-//                 locstr = try std.fmt.bufPrint(&r4, "byte {d}", .{buf.*[index + 4]});
-//                 sliceLenR4 = locstr.len;
-//             } else {
-//                 // untested
-//                 var locstr = try std.fmt.bufPrint(&r3, "+ {d}], ", .{(@as(u16, buf[index + 3]) << 8) | @as(u16, buf[index + 2])});
-//                 sliceLenR3 = locstr.len;
-//                 locstr = try std.fmt.bufPrint(&r4, "word {d}", .{(@as(u16, buf[index + 5]) << 8) | @as(u16, buf[index + 4])});
-//                 sliceLenR4 = locstr.len;
-//             }
-//         },
-//         .fail => try std_out.print(": mov_imm_to_reg_mem mode fail :", .{}),
-//     }
-//
-//     try std_out.print("mov {s}{s}{s}{s}\n", .{ r1[0..sliceLenR1], r2[0..sliceLenR2], r3[0..sliceLenR3], r4[0..sliceLenR4] });
-//
-//     if (mem_mode == .mem16) {
-//         return 3;
-//     }
-//     if (width == .sixT_bit) {
-//         return 1;
-//     }
-//     return 0;
-// }
-//
-// pub fn mov_imm_to_reg(buf: *[4096]u8, index: u64, std_out: *std.Io.Writer) u64 {
-//     if (buf.*[index] & 0b00001000 == 0b00001000) {
-//         const regStr = switch (buf.*[index] & 0b00000111) {
-//             0b00000000 => "ax",
-//             0b00000001 => "cx",
-//             0b00000010 => "dx",
-//             0b00000011 => "bx",
-//             0b00000100 => "sp",
-//             0b00000101 => "bp",
-//             0b00000110 => "si",
-//             0b00000111 => "di",
-//             else => "fl",
-//         };
-//
-//         try std_out.print("mov {s}, {d}\n", .{ regStr, std.mem.readInt(u16, @ptrCast(buf[index + 1 .. index + 2]), .native) });
-//
-//         return 1;
-//     }
-//
-//     const regStr = switch (buf.*[index] & 0b00000111) {
-//         0b00000000 => "al",
-//         0b00000001 => "cl",
-//         0b00000010 => "dl",
-//         0b00000011 => "bl",
-//         0b00000100 => "ah",
-//         0b00000101 => "ch",
-//         0b00000110 => "dh",
-//         0b00000111 => "bh",
-//         else => "fl",
-//     };
-//
-//     try std_out.print("mov {s}, {d}\n", .{ regStr, buf.*[index + 1] });
-//     return 0;
-// }
-//
+pub fn mov_imm_to_reg_mem(buf: *[4096]u8, index: u64, std_out: *std.Io.Writer) !u64 {
+    const Mode_reg_mem_to_reg = enum { mem0, mem8, mem16, reg, fail };
+    const mem_mode = switch (buf.*[index + 1] & 0b11000000) {
+        0b00000000 => Mode_reg_mem_to_reg.mem0,
+        0b01000000 => Mode_reg_mem_to_reg.mem8,
+        0b10000000 => Mode_reg_mem_to_reg.mem16,
+        0b11000000 => Mode_reg_mem_to_reg.reg,
+        else => Mode_reg_mem_to_reg.fail,
+    };
+
+    const rmBits = buf.*[index + 1] & 0b00000111;
+
+    const wMask = (buf[index] & 0b00000001);
+    const width = switch (wMask) {
+        0b00000000 => WidthMode.eight_bit,
+        else => WidthMode.sixT_bit,
+    };
+
+    switch (mem_mode) {
+        .reg => try std_out.print(": mov_imm_to_reg_mem mode reg :", .{}),
+        .mem0 => {
+            // try std_out.print(": mem0 :", .{});
+
+            switch (rmBits) {
+                0b00000000 =>  try std_out.print("[bx + si]", .{}),
+                0b00000001 =>  try std_out.print("[bx + di]", .{}),
+                0b00000010 =>  try std_out.print("[bp + si]", .{}),
+                0b00000011 =>  try std_out.print("[bp + di]", .{}),
+                0b00000100 =>  try std_out.print("[si]", .{}),
+                0b00000101 =>  try std_out.print("[di]", .{}),
+                0b00000110 =>  try std_out.print("[bp]", .{}),
+                0b00000111 =>  try std_out.print("[bx]", .{}),
+                else =>  try std_out.print("fl  ", .{}),
+            }
+
+            if (width == .eight_bit) {
+                try std_out.print( " ,byte {d}", .{buf.*[index + 2]});
+            } else {
+                // untested
+                try std_out.print( " ,byte {d}", .{(@as(u16, buf[index + 3]) << 8) | @as(u16, buf[index + 2])});
+            }
+        },
+        .mem8 => try std_out.print(": mov_imm_to_reg_mem mode mem8 :", .{}),
+        .mem16 => {
+            switch (rmBits) {
+                0b00000000 =>  try std_out.print("[bx + si ", .{}),
+                0b00000001 =>  try std_out.print("[bx + di ", .{}),
+                0b00000010 =>  try std_out.print("[bp + si ", .{}),
+                0b00000011 =>  try std_out.print("[bp + di ", .{}),
+                0b00000100 =>  try std_out.print("[si ", .{}),
+                0b00000101 =>  try std_out.print("[di ", .{}),
+                0b00000110 =>  try std_out.print("[bp ", .{}),
+                0b00000111 =>  try std_out.print("[bx ", .{}),
+                else =>  try std_out.print("fl  ", .{}),
+            }
+
+            if (width == .eight_bit) {
+                //untested
+                try std_out.print( "+ {d}], ", .{buf.*[index + 2]});
+                try std_out.print( "byte {d}", .{buf.*[index + 4]});
+            } else {
+                // untested
+                try std_out.print( "+ {d}], ", .{(@as(u16, buf[index + 3]) << 8) | @as(u16, buf[index + 2])});
+                try std_out.print( "word {d}", .{(@as(u16, buf[index + 5]) << 8) | @as(u16, buf[index + 4])});
+            }
+        },
+        .fail => try std_out.print(": mov_imm_to_reg_mem mode fail :", .{}),
+    }
+
+    if (mem_mode == .mem16) {
+        return 3;
+    }
+    if (width == .sixT_bit) {
+        return 1;
+    }
+    return 0;
+}
+
+pub fn mov_imm_to_reg(buf: *[4096]u8, index: u64, std_out: *std.Io.Writer) !u64 {
+    if (buf.*[index] & 0b00001000 == 0b00001000) {
+        const regStr = switch (buf.*[index] & 0b00000111) {
+            0b00000000 => "ax",
+            0b00000001 => "cx",
+            0b00000010 => "dx",
+            0b00000011 => "bx",
+            0b00000100 => "sp",
+            0b00000101 => "bp",
+            0b00000110 => "si",
+            0b00000111 => "di",
+            else => "fl",
+        };
+
+        try std_out.print("mov {s}, {d}\n", .{ regStr, std.mem.readInt(u16, @ptrCast(buf[index + 1 .. index + 2]), .native) });
+
+        return 1;
+    }
+
+    const regStr = switch (buf.*[index] & 0b00000111) {
+        0b00000000 => "al",
+        0b00000001 => "cl",
+        0b00000010 => "dl",
+        0b00000011 => "bl",
+        0b00000100 => "ah",
+        0b00000101 => "ch",
+        0b00000110 => "dh",
+        0b00000111 => "bh",
+        else => "fl",
+    };
+
+    try std_out.print("mov {s}, {d}\n", .{ regStr, buf.*[index + 1] });
+    return 0;
+}
+
 pub fn main(init: std.process.Init) !void {
     // Prints to stderr, unbuffered, ignoring potential errors.
     //try std_out.print("All your {s} are belong to us.\n", .{"codebase"});
@@ -454,13 +434,13 @@ pub fn main(init: std.process.Init) !void {
         // }
 
         switch (instruction) {
-            // .mov_imm_to_reg_mem => iter += try mov_imm_to_reg_mem(&buf, index),
+            .mov_imm_to_reg_mem => iter += try mov_imm_to_reg_mem(&buf, index, std_out),
             .mov_reg_mem_to_reg => iter += try mov_reg_mem_to_reg(&buf, index, std_out),
-            // .mov_imm_to_reg => iter += mov_imm_to_reg(&buf, index),
+            .mov_imm_to_reg => iter += try mov_imm_to_reg(&buf, index, std_out),
             .mov_mem_to_acc => iter += try mov_mem_to_acc(&buf, index, std_out),
             .mov_acc_to_mem => iter += try mov_acc_to_mem(&buf, index, std_out),
-            // .mov_reg_mem_to_segreg => try std_out.print("mov_reg_mem_to_segreg\n", .{}),
-            // .mov_segreg_toreg_mem => try std_out.print("mov_segreg_toreg_mem\n", .{}),
+            .mov_reg_mem_to_segreg => try std_out.print("mov_reg_mem_to_segreg\n", .{}),
+            .mov_segreg_toreg_mem => try std_out.print("mov_segreg_toreg_mem\n", .{}),
             else => try std_out.print("fail {} {b}\n", .{ instruction, buf[index] }),
         }
 
